@@ -29,7 +29,7 @@ class Bot():
 		async def handle_command_start(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext):
 
 			await state.update_data(
-				message = "",
+				message = message.text,
 				client_cpm = "0",
 				influencer_price = "0",
 				views = "0"
@@ -41,7 +41,10 @@ class Bot():
 		async def handle_message_text(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext):
 
 			await state.update_data(
-				message = message
+				message = message.text,
+				client_cpm = "0",
+				influencer_price = "0",
+				views = "0"
 			)
 
 			reflexion = await core.handlers.handle_message_text(message, state, self.engine)
@@ -53,6 +56,7 @@ class Bot():
 
 
 if __name__ == '__main__':
+
 
 	async def main():
 

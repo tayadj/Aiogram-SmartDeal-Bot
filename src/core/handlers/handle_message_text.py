@@ -7,15 +7,12 @@ async def handle_message_text(message: aiogram.types.Message, state: aiogram.fsm
 
 	try:
 
-		await message.answer('Hi!')
-
-		data = await state.get_data()
-		print(data)
-
-		# Strategy implementation
+		response = await engine.query(state)
+		await message.answer(response.get('message', '__no_message__'))
 
 		return {'handler': 'handle_message_text'}
 
 	except Exception as exception:
 
+		print(exception)
 		await message.answer('Oops! Something is wrong.')

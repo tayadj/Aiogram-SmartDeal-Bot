@@ -44,14 +44,14 @@ class Engine:
     async def _start_node(self, state: State):
 
         prompt = PromptTemplate(
-           input_variables=["text"],
-           template="Find in this message price for advertisements and return integer, and if it's not there then return 0. Message: {text}\nPrice: "
+           input_variables = ["text"],
+           template = "Find in this message price for advertisements and return integer, and if it's not there then return 0. Message: {text}\nPrice: "
         )
 
-        message = HumanMessage(content=prompt.format(text=state["message"]))
+        message = HumanMessage(content=prompt.format(text = state.get("message")))
         influencer_price = (await self.llm.ainvoke(message.content)).content.strip()
 
-        return {"influencer_price": influencer_price}
+        return {'influencer_price': influencer_price, 'message': 'example message'}
 
     async def _price_cpm_node(self, state: State):
 
@@ -79,8 +79,20 @@ class Engine:
 
     async def _end_node(self, state: State):
 
-        pass
+        return {'message': 'example message'}
 
-    async def query(self, state: State):
+    async def query(self, state):
 
-        return await self.app.ainvoke(state)
+        state_data = await state.get_data()
+
+        initial_state = {
+            message: state_data.get('message'),
+            client_cpm: state_data.get('client_cpm', 0),
+            influencer_price: state_data.get('influencer_price', 0),
+            views: state_data.get('views', 0)
+        }
+
+        return await self.app.ainvoke(initial_state)
+
+        # return should contain 'message' field for straightforward answer via bot
+        # e.g. : {'message': 'example of message', ...}
