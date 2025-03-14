@@ -2,7 +2,7 @@ import aiogram
 
 
 
-async def handle_command_start(message: aiogram.types.Message):
+async def handle_command_start(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext, engine):
 
 	try:
 

@@ -3,8 +3,7 @@ import asyncio
 
 
 
-async def handle_message_text(message: aiogram.types.Message):
-# param to add: engine
+async def handle_message_text(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext, engine):
 
 	try:
 
