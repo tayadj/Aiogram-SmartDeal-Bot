@@ -10,7 +10,7 @@ class Bot():
 
 	class UserState(aiogram.fsm.state.StatesGroup):
 
-	    message = aiogram.fsm.state.State()
+		message = aiogram.fsm.state.State()
 		client_cpm = aiogram.fsm.state.State()
 		influencer_price = aiogram.fsm.state.State()
 		views = aiogram.fsm.state.State()
@@ -28,10 +28,21 @@ class Bot():
 		@self.dispatcher.message(aiogram.filters.Command('start'))
 		async def handle_command_start(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext):
 
+			await state.update_data(
+				message = "",
+				client_cpm = "0",
+				influencer_price = "0",
+				views = "0"
+			)
+
 			reflexion = await core.handlers.handle_command_start(message, state, self.engine)
 
 		@self.dispatcher.message(aiogram.F.text)
 		async def handle_message_text(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext):
+
+			await state.update_data(
+				message = message
+			)
 
 			reflexion = await core.handlers.handle_message_text(message, state, self.engine)
 

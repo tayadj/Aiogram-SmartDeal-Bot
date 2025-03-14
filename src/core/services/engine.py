@@ -24,7 +24,7 @@ class Engine:
 
     def setup_engine(self):
 
-        workflow = StateGraph(State)
+        workflow = StateGraph(self.State)
 
         workflow.set_entry_point("START")
         workflow.add_node("START", self._start_node)
@@ -35,7 +35,7 @@ class Engine:
         workflow.add_node("PRICE_FIX_20", self._price_fix_20_node)
         workflow.add_node("PRICE_FIX_30", self._price_fix_30_node)
         workflow.add_node("END", self._end_node)
-        workdlow.set_finish_point("END")
+        workflow.set_finish_point("END")
 
         workflow.add_edge("START", "END")
 
@@ -81,6 +81,6 @@ class Engine:
 
         pass
 
-    async def query(self, text: str):
+    async def query(self, state: State):
 
-        return await self.app.ainvoke({"message": text, "client_cpm": 0, "influencer_price": 0, "views": ""})
+        return await self.app.ainvoke(state)

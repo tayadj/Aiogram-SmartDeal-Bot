@@ -9,7 +9,10 @@ async def handle_message_text(message: aiogram.types.Message, state: aiogram.fsm
 
 		await message.answer('Hi!')
 
-		# deal-strategy implementation
+		data = await state.get_data()
+		print(data)
+
+		# Strategy implementation
 
 		return {'handler': 'handle_message_text'}
 

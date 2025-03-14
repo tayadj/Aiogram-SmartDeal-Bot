@@ -1,1 +1,2 @@
 from .handle_command_start import handle_command_start
+from .handle_message_text import handle_message_text
