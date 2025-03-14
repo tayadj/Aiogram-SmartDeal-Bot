@@ -30,24 +30,17 @@ class Engine:
         workflow.add_node("START", self._start_node)
         workflow.add_node("PRICE_CPM", self._price_cpm_node)
         workflow.add_node("PRICE_CPM_15", self._price_cpm_15_node)
+        workflow.add_node("PRICE_CPM_CAP", self._price_cpm_cap_node)
         workflow.add_node("PRICE_FIX", self._price_fix_node)
+        workflow.add_node("PRICE_FIX_20", self._price_fix_20_node)
+        workflow.add_node("PRICE_FIX_30", self._price_fix_30_node)
+        workflow.add_node("END", self._end_node)
+        workdlow.set_finish_point("END")
 
-        workflow.add_edge("START", END)
+        workflow.add_edge("START", "END")
 
         self.app = workflow.compile()
-
-    async def _price_fix_node(self, state: State):
-
-        pass
-
-    async def _price_cpm_node_15(self, state: State):
-
-        pass
-
-    async def _price_cpm_node(self, state: State):
-
-        pass
-
+ 
     async def _start_node(self, state: State):
 
         prompt = PromptTemplate(
@@ -59,6 +52,34 @@ class Engine:
         influencer_price = (await self.llm.ainvoke(message.content)).content.strip()
 
         return {"influencer_price": influencer_price}
+
+    async def _price_cpm_node(self, state: State):
+
+        pass
+
+    async def _price_cpm_15_node(self, state: State):
+
+        pass
+
+    async def _price_cpm_cap_node(self, state: State):
+
+        pass
+
+    async def _price_fix_node(self, state: State):
+
+        pass
+
+    async def _price_fix_20_node(self, state: State):
+
+        pass
+
+    async def _price_fix_30_node(self, state: State):
+
+        pass
+
+    async def _end_node(self, state: State):
+
+        pass
 
     async def query(self, text: str):
 

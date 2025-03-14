@@ -2,7 +2,6 @@ import config
 import core
 
 import aiogram
-
 import asyncio
 
 
