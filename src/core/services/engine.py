@@ -218,16 +218,18 @@ class Engine:
 		)
 
 		self.prompt_send_confirmation = PromptTemplate(
-			input_variables=["text", "status"],
+			input_variables=["text", "status", "price"],
 			template=(
-				"Compose a confirmational message as a manager's response to the following message. "
-				"The response should clearly convey agreement in a professional tone.\n\n"
+				"Compose a professional and concise summary message as a manager's response to the following user interaction. "
+				"Ensure the response clearly communicates the outcome of the discussion, including the decision and price in a structured and professional tone.\n\n"
 				"Details:\n"
-				"- Previous user's message {text}\n"
-				"- User agreement status: {status}\n\n"
+				"- Previous user's message: {text}\n"
+				"- User agreement status: {status}\n"
+				"- Final Agreed Price: {price}\n\n"
 				"Response:"
 			)
 		)
+
 
 	def setup_conditions(self):
 
@@ -490,7 +492,8 @@ class Engine:
 		message = HumanMessage(
 			content = self.prompt_send_confirmation.format(
 				text = state.get('message'),
-				status = self.success
+				price = state.get('influencer_price'),
+				status = self.success				
 			)
 		)
 		
