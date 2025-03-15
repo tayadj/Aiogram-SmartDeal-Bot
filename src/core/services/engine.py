@@ -5,13 +5,13 @@ from langchain.schema import HumanMessage
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import interrupt, Command
-from typing import TypedDict
+from typing import TypedDict, Literal
 
 
 
 class Engine:
 
-	first_query = False  # sos wtf
+	first_query = False
 
 	class State(TypedDict):
 
@@ -49,7 +49,7 @@ class Engine:
 		self.workflow.add_edge("PRICE_CPM", "END")
 		'''
 
-		self.workflow.add_conditional_edges("START", self.condition_fix_price, {True: 'END', False: 'PRICE_CPM'})
+		# self.workflow.add_conditional_edges("START", self.condition_fix_price, {True: 'END', False: 'PRICE_CPM'})
 
 		self.app = self.workflow.compile(checkpointer=MemorySaver())
 
@@ -58,6 +58,11 @@ class Engine:
 		self.prompt_find_price = PromptTemplate(
 			input_variables = ['text'],
 			template = 'Extract the price for advertisements from the message. If not found, return 0. Message: {text}'
+		)
+
+		self.prompt_send_confirmation = PromptTemplate(
+			input_variables = ['text'],
+			template = 'Send a confirmational message of agreement as a manager\'s answer to the next message: {text}'
 		)
 
 
@@ -70,11 +75,16 @@ class Engine:
 			views = int(state.get("views", 0))
 			influencer_price = int(state.get("influencer_price", 0))
 
+			print('condition:')
+			print((client_cpm * views) / 1000)
+			print(influencer_price)
+			print(influencer_price <= (client_cpm * views) / 1000)
+
 			return influencer_price <= (client_cpm * views) / 1000
 
 		self.condition_fix_price = condition_fix_price
 			
-	async def _start_node(self, state: State):
+	async def _start_node(self, state: State) -> Command[Literal["END", "PRICE_CPM"]]:
 
 		message = HumanMessage(
 			content = self.prompt_find_price.format(
@@ -86,6 +96,12 @@ class Engine:
 
 		print(state)
 
+		switch = {
+			True: "END",
+			False: "PRICE_CPM"
+		}
+
+		return Command(update = state, goto = switch[self.condition_fix_price(state)])
 
 
 		'''
@@ -157,9 +173,15 @@ class Engine:
 
 	async def _end_node(self, state: State):
 
-		print("end_node")
+		message = HumanMessage(
+			content = self.prompt_send_confirmation.format(
+				text = state.get('message')
+			)
+		)
+		
+		confirmation = (await self.llm.ainvoke(message.content)).content.strip()
 
-		return state
+		return {'message': confirmation}
 
 	async def query(self, state, tg_id):
 

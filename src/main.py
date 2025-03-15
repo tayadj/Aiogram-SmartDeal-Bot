@@ -30,9 +30,9 @@ class Bot():
 
 			await state.update_data(
 				message = message.text,
-				client_cpm = "0",
+				client_cpm = "5000",
 				influencer_price = "0",
-				views = "0"
+				views = "10000"
 			)
 
 			reflexion = await core.handlers.handle_command_start(message, state, self.engine)
