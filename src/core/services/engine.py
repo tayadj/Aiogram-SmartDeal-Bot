@@ -11,8 +11,6 @@ from typing import TypedDict, Literal
 
 class Engine:
 
-	first_query = False
-
 	class State(TypedDict):
 
 		message: str
@@ -23,6 +21,7 @@ class Engine:
 	def __init__(self, api_key: str):
 
 		self.llm = ChatOpenAI(model="gpt-4", api_key=api_key)
+		self.interruption = False
 
 		self.setup_conditions()
 		self.setup_prompts()
@@ -43,21 +42,68 @@ class Engine:
 		self.workflow.add_node("END", self._end_node)
 		self.workflow.set_finish_point("END")
 
-		'''
-		Version from aRkDev21
-		self.workflow.add_edge("START", "PRICE_CPM")
-		self.workflow.add_edge("PRICE_CPM", "END")
-		'''
-
-		# self.workflow.add_conditional_edges("START", self.condition_fix_price, {True: 'END', False: 'PRICE_CPM'})
-
 		self.app = self.workflow.compile(checkpointer=MemorySaver())
 
 	def setup_prompts(self):
 
 		self.prompt_find_price = PromptTemplate(
 			input_variables = ['text'],
-			template = 'Extract the price for advertisements from the message. If not found, return 0. Message: {text}'
+			template = 'Extract the price for advertisements from the message. If not found, return 0. Message: {text}. Response must be as an integer.'
+		)
+
+		self.prompt_detect_behaviour_cpm = PromptTemplate(
+			input_variables=['text'],
+			template=(
+				"Analyze the following message to determine the response regarding CPM collaboration. "
+				"Based on the analysis, return one of the following options:\n"
+				"- AGREEMENT: If the message indicates full agreement with CPM terms.\n"
+				"- LOW_CAP: If the message indicates dissatisfaction with the cap (maximum payout).\n"
+				"- LOW_CPM: If the message indicates dissatisfaction with the CPM rate itself.\n"
+				"- NO_CPM: If the message indicates the influencer completely rejects the CPM system.\n"
+				"Message: {text}\n\n"
+				"Response:"
+			)
+		)
+
+		self.prompt_detect_behaviour_cpm_15 = PromptTemplate(
+			input_variables=['text'],
+			template=(
+				"Analyze the following message to determine the response regarding the new CPM collaboration offer. "
+				"Based on the analysis, return one of the following options:\n"
+				"- AGREEMENT: If the message indicates full agreement with the new CPM terms, including the increased rate.\n"
+				"- LOW_CPM: If the message indicates dissatisfaction with the new CPM rate, even after the increase.\n"
+				"Message: {text}\n\n"
+				"Response:"
+			)
+		)
+
+		self.prompt_offer_cpm = PromptTemplate(
+			input_variables=["client_price", "cap", 'text'],
+			template=(
+				"Compose a professional and persuasive message to the influencer, offering a payment based on the system's cost-per-mile (CPM) model. "
+				"Highlight that this pricing structure aligns better with the client's performance benchmarks. "
+				"Make sure to include the maximum payout (cap) that the influencer could receive for the integration.\n\n"
+				"Details:\n"
+				"- Suggested CPM Price: {client_price}\n"
+				"- Maximum Payout (Cap): {cap}\n"
+				"- Previous user's message: {text}\n\n"
+				"Response:"
+			)
+		)
+
+		self.prompt_offer_cpm_15 = PromptTemplate(
+			input_variables=["client_price", "cap", "text", "new_cpm"],
+			template=(
+				"Compose a professional and compelling message to the influencer, offering an increased payment based on the system's cost-per-mile (CPM) model. "
+				"Highlight that this new rate includes a 15% increase in CPM to align better with their value and ensure a mutually beneficial partnership. "
+				"Also, mention the updated maximum payout (cap) that they could receive for the integration.\n\n"
+				"Details:\n"
+				"- Original CPM Price: {client_price}\n"
+				"- Increased CPM Price (+15%): {new_cpm}\n"
+				"- Updated Maximum Payout (Cap): {cap}\n"
+				"- Previous user's message: {text}\n\n"
+				"Response:"
+			)
 		)
 
 		self.prompt_send_confirmation = PromptTemplate(
@@ -65,26 +111,23 @@ class Engine:
 			template = 'Send a confirmational message of agreement as a manager\'s answer to the next message: {text}'
 		)
 
-
-
 	def setup_conditions(self):
 
-		def condition_fix_price(state):
+		def condition_start_price(state):
 
 			client_cpm = int(state.get("client_cpm", 0))
 			views = int(state.get("views", 0))
 			influencer_price = int(state.get("influencer_price", 0))
 
-			print('condition:')
-			print((client_cpm * views) / 1000)
-			print(influencer_price)
-			print(influencer_price <= (client_cpm * views) / 1000)
-
 			return influencer_price <= (client_cpm * views) / 1000
 
-		self.condition_fix_price = condition_fix_price
+		self.condition_start_price = condition_start_price
 			
-	async def _start_node(self, state: State) -> Command[Literal["END", "PRICE_CPM"]]:
+
+
+	async def _start_node(self, state: State) -> Command[Literal['END', 'PRICE_CPM']]:
+
+		print("_start_node")
 
 		message = HumanMessage(
 			content = self.prompt_find_price.format(
@@ -94,84 +137,111 @@ class Engine:
 		influencer_price = (await self.llm.ainvoke(message.content)).content.strip()
 		state.update({'influencer_price': influencer_price})
 
-		print(state)
+		match self.condition_start_price(state):
 
-		switch = {
-			True: "END",
-			False: "PRICE_CPM"
-		}
+			case True:
 
-		return Command(update = state, goto = switch[self.condition_fix_price(state)])
+				return Command(update = state, goto = 'END')
 
+			case False:
 
-		'''
-		Version from aRkDev21
-		# without condition_edges!!! case if price indicated in message, but he higher than client_price
+				message = HumanMessage(
+					content = self.prompt_offer_cpm.format(
+						client_price = int(state.get('client_cpm')),
+						cap = int(state.get('client_cpm')) * int(state.get('views')) * 1.5 / 1000, # true formula should be (CPM*(((min views + max views) / 2) + max views)/2 ) / 1000
+						text = state.get('message')
+					)
+				)
+				text = (await self.llm.ainvoke(message.content)).content.strip()
+				state.update({'message': text})
 
-		prompt_find_price = PromptTemplate(
-		   input_variables = ["text"],
-		   template = "Find in this message price for advertisements and return integer, and if it's not there then return 0. Message: {text}\nPrice: "
-		)
+				return Command(update = state, goto = 'PRICE_CPM')
 
-		message = HumanMessage(content = prompt_find_price.format(text = state.get("message")))
-		influencer_price = (await self.llm.ainvoke(message.content)).content.strip()
-		state.update({'influencer_price': influencer_price})
-
-		prompt_offer_price = PromptTemplate(
-			input_variables = ["client_price", "cap"],
-			template = "Offer influencer purchase by system costs per mile, also add that this better matches the client's benchmarks, also mention the maximum amount (cap) that a blogger can receive for integration. Price {client_price}, Cap {cap}"
-		)
-		message_offer = HumanMessage(content = prompt_offer_price.format(
-			client_price = (state.get("client_cpm")),
-			cap = 12000 # get from State
-		))
-		text = (await self.llm.ainvoke(message_offer.content)).content.strip()
-		return {'message': text}
-		'''
-
-	async def _price_cpm_node(self, state: State):
+	async def _price_cpm_node(self, state: State) -> Command[Literal['END', 'PRICE_CPM_CAP', 'PRICE_CPM_15', 'PRICE_FIX']]:
 
 		print("_price_cpm_node")
 
-		'''
-		Version from aRkDev21
-		state = interrupt({
-			"message": "Empty"
-		})  # equals value in resume (arg Command)
+		response = interrupt({})
+		state.update({'message': response.get('message', state['message'])})
 
-		prompt_find_price = PromptTemplate(
-		   input_variables = ["text"],
-		   template = "try to understand whether the blogger agrees to this system or not. if not, please state one of the reasons.: he doesn't like his cap or cpm. Message: {text}"
+		message = HumanMessage(
+			content = self.prompt_detect_behaviour_cpm.format(
+				text = state.get("message")
+			)
 		)
-		message = HumanMessage(content = prompt_find_price.format(text = state.get("message")))
-		reason = (await self.llm.ainvoke(message.content)).content.strip()
-		return {"message": reason}
-		'''
 
+		match (await self.llm.ainvoke(message.content)).content.strip():
 
+			case 'AGREEMENT':
 
+				return Command(update = state, goto = 'END')
+
+			case 'NO_CPM':
+
+				return Command(update = state, goto = 'PRICE_FIX')
+
+			case 'LOW_CAP':
+
+				return Command(update = state, goto = 'PRICE_CPM_CAP')
+
+			case 'LOW_CPM':
+
+				message = HumanMessage(
+					content = self.prompt_offer_cpm_15.format(
+						client_price = int(state.get('client_cpm')),
+						cap = int(state.get('client_cpm')) * 1.15 * int(state.get('views')) * 1.5 / 1000, # true formula should be (CPM*(((min views + max views) / 2) + max views)/2 ) / 1000
+						text = state.get('message'),
+						new_cpm = int(state.get('client_cpm')) * 1.15,
+					)
+				)
+				text = (await self.llm.ainvoke(message.content)).content.strip()
+				state.update({'message': text})
+
+				return Command(update = state, goto = 'PRICE_CPM_15')
 
 	async def _price_cpm_15_node(self, state: State):
 
-		pass
+		print("_price_cpm_15_node")
+
+		response = interrupt({})
+		state.update({'message': response.get('message', state['message'])})
+
+		message = HumanMessage(
+			content = self.prompt_detect_behaviour_cpm_15.format(
+				text = state.get("message")
+			)
+		)
+
+		match (await self.llm.ainvoke(message.content)).content.strip():
+
+			case 'AGREEMENT':
+
+				return Command(update = state, goto = 'END')
+
+			case 'LOW_CPM':
+
+				return Command(update = state, goto = 'PRICE_FIX')
+
 
 	async def _price_cpm_cap_node(self, state: State):
 
-		pass
+		print("_price_cpm_cap_node")
 
 	async def _price_fix_node(self, state: State):
 
-		pass
+		print("_price_fix_node")
 
 	async def _price_fix_20_node(self, state: State):
 
-		pass
+		print("_price_fix_20_node")
 
 	async def _price_fix_30_node(self, state: State):
 
-		pass
+		print("_price_fix_30_node")
 
 	async def _end_node(self, state: State):
+
+		print("_end_node")
 
 		message = HumanMessage(
 			content = self.prompt_send_confirmation.format(
@@ -183,15 +253,17 @@ class Engine:
 
 		return {'message': confirmation}
 
+
+
 	async def query(self, state, tg_id):
 
 		state_data = await state.get_data()
 
 		initial_state = {
 			'message': state_data.get('message'),
-			'client_cpm': state_data.get('client_cpm', 0),
-			'influencer_price': state_data.get('influencer_price', 0),
-			'views': state_data.get('views', 0)
+			'client_cpm': state_data.get('client_cpm'),
+			'influencer_price': state_data.get('influencer_price'),
+			'views': state_data.get('views')
 		}
 
 		config = {
@@ -200,12 +272,9 @@ class Engine:
 			}
 		}
 
-		if not self.first_query:
+		if not self.interruption:
 
-			self.first_query = True
+			self.interruption = True
 			return await self.app.ainvoke(initial_state, config = config)
 
 		return await self.app.ainvoke(Command(resume = initial_state), config = config)
-
-		# return should contain 'message' field for straightforward answer via bot
-		# e.g. : {'message': 'example of message', ...}
