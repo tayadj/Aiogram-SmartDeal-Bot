@@ -22,6 +22,7 @@ class Engine:
 
 		self.llm = ChatOpenAI(model="gpt-4", api_key=api_key)
 		self.interruption = False
+		self.success = True
 
 		self.setup_conditions()
 		self.setup_prompts()
@@ -47,8 +48,14 @@ class Engine:
 	def setup_prompts(self):
 
 		self.prompt_find_price = PromptTemplate(
-			input_variables = ['text'],
-			template = 'Extract the price for advertisements from the message. If not found, return 0. Message: {text}. Response must be as an integer.'
+			input_variables=["text"],
+			template=(
+				"Analyze the following message and extract the price for advertisements. "
+				"If the price is not explicitly mentioned in the message, return 0. "
+				"Ensure the response is strictly an integer.\n\n"
+				"Message: {text}\n\n"
+				"Response:"
+			)
 		)
 
 		self.prompt_detect_behaviour_cpm = PromptTemplate(
@@ -76,6 +83,55 @@ class Engine:
 				"Response:"
 			)
 		)
+
+		self.prompt_detect_behaviour_cpm_cap = PromptTemplate(
+			input_variables=['text'],
+			template=(
+				"Analyze the following message to determine the response regarding the new maximum payout (cap) offer in the CPM collaboration. "
+				"Based on the analysis, return one of the following options:\n"
+				"- AGREEMENT: If the message indicates full agreement with the new maximum payout (cap).\n"
+				"- LOW_CAP: If the message indicates dissatisfaction with the new maximum payout (cap).\n"
+				"Message: {text}\n\n"
+				"Response:"
+			)
+		)
+
+		self.prompt_detect_behaviour_fix_price = PromptTemplate(
+			input_variables=["text"],
+			template=(
+				"Analyze the following message to determine the response regarding the fixed-price collaboration offer. "
+				"Based on the analysis, return one of the following options:\n"
+				"- AGREEMENT: If the message indicates full agreement with the fixed-price terms.\n"
+				"- LOW_FIX_PRICE: If the message indicates dissatisfaction with the fixed price or a desire for further negotiation.\n"
+				"Message: {text}\n\n"
+				"Response:"
+			)
+		)
+
+		self.prompt_detect_behaviour_fix_price_20 = PromptTemplate(
+			input_variables=['text'],
+			template=(
+				"Analyze the following message to determine the response regarding the new fixed price offer with a 20% increase. "
+				"Based on the analysis, return one of the following options:\n"
+				"- AGREEMENT: If the message indicates full agreement with the new fixed price terms, including the 20% increase.\n"
+				"- LOW_FIX_PRICE: If the message indicates dissatisfaction with the new fixed price, even after the increase.\n"
+				"Message: {text}\n\n"
+				"Response:"
+			)
+		)
+
+		self.prompt_detect_behaviour_fix_price_30 = PromptTemplate(
+			input_variables=['text'],
+			template=(
+				"Analyze the following message to determine the response regarding the new fixed price offer with a 30% increase. "
+				"Based on the analysis, return one of the following options:\n"
+				"- AGREEMENT: If the message indicates full agreement with the new fixed price terms, including the 30% increase.\n"
+				"- LOW_FIX_PRICE: If the message indicates dissatisfaction with the new fixed price, even after the increase.\n"
+				"Message: {text}\n\n"
+				"Response:"
+			)
+		)
+
 
 		self.prompt_offer_cpm = PromptTemplate(
 			input_variables=["client_price", "cap", 'text'],
@@ -106,9 +162,71 @@ class Engine:
 			)
 		)
 
+		self.prompt_offer_cpm_cap = PromptTemplate(
+			input_variables=["client_price", "text", "new_cap"],
+			template=(
+				"Compose a professional and persuasive message to the influencer, offering a payment based on the system's cost-per-mile (CPM) model. "
+				"Emphasize that the maximum payout (cap) has been increased by 30% to reflect their value and ensure a stronger collaboration. "
+				"Highlight how this adjustment demonstrates the commitment to achieving a mutually beneficial partnership.\n\n"
+				"Details:\n"
+				"- Suggested CPM Price: {client_price}\n"
+				"- Updated Maximum Payout (Cap +30%): {new_cap}\n"
+				"- Previous user's message: {text}\n\n"
+				"Response:"
+			)
+		)
+
+		self.prompt_offer_fix_price = PromptTemplate(
+			input_variables=["fix_price", "text"],
+			template=(
+				"Compose a professional and persuasive message to the influencer, offering a collaboration based on a fixed-price model. "
+				"Highlight the advantages of this payment structure and emphasize that it reflects their value and ensures a reliable and transparent partnership. "
+				"Clearly specify the fixed price for the collaboration.\n\n"
+				"Details:\n"
+				"- Fixed Price: {fix_price}\n"
+				"- Previous user's message: {text}\n\n"
+				"Response:"
+			)
+		)
+
+		self.prompt_offer_fix_price_20 = PromptTemplate(
+			input_variables=["original_price", "text", "new_fix_price"],
+			template=(
+				"Compose a professional and persuasive message to the influencer, offering a new fixed-price payment model with a 20% increase. "
+				"Emphasize that this updated rate reflects their exceptional value and showcases a commitment to building a successful partnership. "
+				"Clearly outline the new fixed price for the collaboration.\n\n"
+				"Details:\n"
+				"- Original Fixed Price: {original_price}\n"
+				"- New Fixed Price (+20%): {new_fix_price}\n"
+				"- Previous user's message: {text}\n\n"
+				"Response:"
+			)
+		)
+
+		self.prompt_offer_fix_price_30 = PromptTemplate(
+			input_variables=["original_price", "text", "new_fix_price"],
+			template=(
+				"Compose a professional and compelling message to the influencer, offering a new fixed-price payment model with a 30% increase. "
+				"Highlight that this increased rate reflects their tremendous value and reinforces the commitment to a strong and mutually beneficial collaboration. "
+				"Provide a clear breakdown of the new fixed price for the partnership.\n\n"
+				"Details:\n"
+				"- Original Fixed Price: {original_price}\n"
+				"- New Fixed Price (+30%): {new_fix_price}\n"
+				"- Previous user's message: {text}\n\n"
+				"Response:"
+			)
+		)
+
 		self.prompt_send_confirmation = PromptTemplate(
-			input_variables = ['text'],
-			template = 'Send a confirmational message of agreement as a manager\'s answer to the next message: {text}'
+			input_variables=["text", "status"],
+			template=(
+				"Compose a confirmational message as a manager's response to the following message. "
+				"The response should clearly convey agreement in a professional tone.\n\n"
+				"Details:\n"
+				"- Previous user's message {text}\n"
+				"- User agreement status: {status}\n\n"
+				"Response:"
+			)
 		)
 
 	def setup_conditions(self):
@@ -178,9 +296,28 @@ class Engine:
 
 			case 'NO_CPM':
 
+				message = HumanMessage(
+					content = self.prompt_offer_fix_price.format(
+						fix_price =  int(state.get('client_cpm')) * int(state.get('views')) * 1.5 / 1000, # true formule should be ((CPM *(((min views + max views) / 2) + max views)/2 ) / 1000)
+						text = state.get('message')
+					)
+				)
+				text = (await self.llm.ainvoke(message.content)).content.strip()
+				state.update({'message': text})
+
 				return Command(update = state, goto = 'PRICE_FIX')
 
 			case 'LOW_CAP':
+
+				message = HumanMessage(
+					content = self.prompt_offer_cpm_cap.format(
+						client_price = int(state.get('client_cpm')),
+						new_cap = int(state.get('client_cpm')) * int(state.get('views')) * 1.5 / 1000 * 1.3, # true formula should be (CPM*(((min views + max views) / 2) + max views)/2 ) / 1000
+						text = state.get('message')
+					)
+				)
+				text = (await self.llm.ainvoke(message.content)).content.strip()
+				state.update({'message': text})
 
 				return Command(update = state, goto = 'PRICE_CPM_CAP')
 
@@ -191,7 +328,7 @@ class Engine:
 						client_price = int(state.get('client_cpm')),
 						cap = int(state.get('client_cpm')) * 1.15 * int(state.get('views')) * 1.5 / 1000, # true formula should be (CPM*(((min views + max views) / 2) + max views)/2 ) / 1000
 						text = state.get('message'),
-						new_cpm = int(state.get('client_cpm')) * 1.15,
+						new_cpm = int(state.get('client_cpm')) * 1.15
 					)
 				)
 				text = (await self.llm.ainvoke(message.content)).content.strip()
@@ -199,7 +336,7 @@ class Engine:
 
 				return Command(update = state, goto = 'PRICE_CPM_15')
 
-	async def _price_cpm_15_node(self, state: State):
+	async def _price_cpm_15_node(self, state: State) -> Command[Literal['END', 'PRICE_FIX']]:
 
 		print("_price_cpm_15_node")
 
@@ -227,7 +364,64 @@ class Engine:
 
 		print("_price_cpm_cap_node")
 
+		response = interrupt({})
+		state.update({'message': response.get('message', state['message'])})
+
+		message = HumanMessage(
+			content = self.prompt_detect_behaviour_cpm_cap.format(
+				text = state.get("message")
+			)
+		)
+
+		match (await self.llm.ainvoke(message.content)).content.strip():
+
+			case 'AGREEMENT':
+
+				return Command(update = state, goto = 'END')
+
+			case 'LOW_CAP':
+
+				message = HumanMessage(
+					content = self.prompt_offer_fix_price.format(
+						fix_price =  int(state.get('client_cpm')) * int(state.get('views')) * 1.5 / 1000, # true formule should be ((CPM *(((min views + max views) / 2) + max views)/2 ) / 1000)
+						text = state.get('message')
+					)
+				)
+				text = (await self.llm.ainvoke(message.content)).content.strip()
+				state.update({'message': text})				
+
+				return Command(update = state, goto = 'PRICE_FIX')
+
 	async def _price_fix_node(self, state: State):
+
+		response = interrupt({})
+		state.update({'message': response.get('message', state['message'])})
+
+		message = HumanMessage(
+			content = self.prompt_detect_behaviour_fix_price.format(
+				text = state.get("message")
+			)
+		)
+
+		match (await self.llm.ainvoke(message.content)).content.strip():
+
+			case 'AGREEMENT':
+
+				return Command(update = state, goto = 'END')
+
+			case 'LOW_FIX_PRICE':
+
+				message = HumanMessage(
+					content = self.prompt_offer_fix_price_20.format(
+						original_price = int(state.get('client_cpm')) * int(state.get('views')) * 1.5 / 1000, # true formule should be ((CPM *(((min views + max views) / 2) + max views)/2 ) / 1000)
+						text = state.get('message'),
+						new_fix_price = int(state.get('client_cpm')) * int(state.get('views')) * 1.5 / 1000 * 1.2
+					)
+				)
+				text = (await self.llm.ainvoke(message.content)).content.strip()
+				state.update({'message': text})					
+
+				return Command(update = state, goto = 'PRICE_FIX_20')
 
 		print("_price_fix_node")
 
@@ -235,9 +429,59 @@ class Engine:
 
 		print("_price_fix_20_node")
 
+		response = interrupt({})
+		state.update({'message': response.get('message', state['message'])})
+
+		message = HumanMessage(
+			content = self.prompt_detect_behaviour_fix_price_20.format(
+				text = state.get("message")
+			)
+		)
+
+		match (await self.llm.ainvoke(message.content)).content.strip():
+
+			case 'AGREEMENT':
+
+				return Command(update = state, goto = 'END')
+
+			case 'LOW_FIX_PRICE':
+
+				message = HumanMessage(
+					content = self.prompt_offer_fix_price_30.format(
+						original_price = int(state.get('client_cpm')) * int(state.get('views')) * 1.5 / 1000, # true formule should be ((CPM *(((min views + max views) / 2) + max views)/2 ) / 1000)
+						text = state.get('message'),
+						new_fix_price = int(state.get('client_cpm')) * int(state.get('views')) * 1.5 / 1000 * 1.3
+					)
+				)
+				text = (await self.llm.ainvoke(message.content)).content.strip()
+				state.update({'message': text})					
+
+				return Command(update = state, goto = 'PRICE_FIX_30')
+
 	async def _price_fix_30_node(self, state: State):
 
 		print("_price_fix_30_node")
+
+		response = interrupt({})
+		state.update({'message': response.get('message', state['message'])})
+
+		message = HumanMessage(
+			content = self.prompt_detect_behaviour_fix_price_30.format(
+				text = state.get("message")
+			)
+		)
+
+		match (await self.llm.ainvoke(message.content)).content.strip():
+
+			case 'AGREEMENT':
+
+				return Command(update = state, goto = 'END')
+
+			case 'LOW_FIX_PRICE':
+			
+				self.success = False
+
+				return Command(update = state, goto = 'END')
 
 	async def _end_node(self, state: State):
 
@@ -245,15 +489,14 @@ class Engine:
 
 		message = HumanMessage(
 			content = self.prompt_send_confirmation.format(
-				text = state.get('message')
+				text = state.get('message'),
+				status = self.success
 			)
 		)
 		
 		confirmation = (await self.llm.ainvoke(message.content)).content.strip()
 
 		return {'message': confirmation}
-
-
 
 	async def query(self, state, tg_id):
 
