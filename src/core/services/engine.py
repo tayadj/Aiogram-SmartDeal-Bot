@@ -1,5 +1,5 @@
 import asyncio
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph
 from langchain.prompts import PromptTemplate
 from langchain.schema import HumanMessage
 from langchain_openai import ChatOpenAI
