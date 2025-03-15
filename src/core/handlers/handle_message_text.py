@@ -8,8 +8,6 @@ async def handle_message_text(message: aiogram.types.Message, state: aiogram.fsm
 	try:
 
 		response = await engine.query(state, message.from_user.id)
-		print("RESPONSE")
-		print(response)
 		await message.answer(response.get('message', '__no_message__'))
 
 		return {'handler': 'handle_message_text'}

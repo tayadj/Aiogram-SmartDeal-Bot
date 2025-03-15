@@ -247,8 +247,6 @@ class Engine:
 
 	async def _start_node(self, state: State) -> Command[Literal['END', 'PRICE_CPM']]:
 
-		print("_start_node")
-
 		message = HumanMessage(
 			content = self.prompt_find_price.format(
 				text = state.get('message')
@@ -278,8 +276,6 @@ class Engine:
 				return Command(update = state, goto = 'PRICE_CPM')
 
 	async def _price_cpm_node(self, state: State) -> Command[Literal['END', 'PRICE_CPM_CAP', 'PRICE_CPM_15', 'PRICE_FIX']]:
-
-		print("_price_cpm_node")
 
 		response = interrupt({})
 		state.update({'message': response.get('message', state['message'])})
@@ -340,8 +336,6 @@ class Engine:
 
 	async def _price_cpm_15_node(self, state: State) -> Command[Literal['END', 'PRICE_FIX']]:
 
-		print("_price_cpm_15_node")
-
 		response = interrupt({})
 		state.update({'message': response.get('message', state['message'])})
 
@@ -362,9 +356,7 @@ class Engine:
 				return Command(update = state, goto = 'PRICE_FIX')
 
 
-	async def _price_cpm_cap_node(self, state: State):
-
-		print("_price_cpm_cap_node")
+	async def _price_cpm_cap_node(self, state: State) -> Command[Literal['END', 'PRICE_FIX']]:
 
 		response = interrupt({})
 		state.update({'message': response.get('message', state['message'])})
@@ -394,7 +386,7 @@ class Engine:
 
 				return Command(update = state, goto = 'PRICE_FIX')
 
-	async def _price_fix_node(self, state: State):
+	async def _price_fix_node(self, state: State) -> Command[Literal['END', 'PRICE_FIX_20']]:
 
 		response = interrupt({})
 		state.update({'message': response.get('message', state['message'])})
@@ -425,11 +417,7 @@ class Engine:
 
 				return Command(update = state, goto = 'PRICE_FIX_20')
 
-		print("_price_fix_node")
-
 	async def _price_fix_20_node(self, state: State):
-
-		print("_price_fix_20_node")
 
 		response = interrupt({})
 		state.update({'message': response.get('message', state['message'])})
@@ -440,7 +428,7 @@ class Engine:
 			)
 		)
 
-		match (await self.llm.ainvoke(message.content)).content.strip():
+		match (await self.llm.ainvoke(message.content)).content.strip() -> Command[Literal['END', 'PRICE_FIX_30']]:
 
 			case 'AGREEMENT':
 
@@ -460,9 +448,7 @@ class Engine:
 
 				return Command(update = state, goto = 'PRICE_FIX_30')
 
-	async def _price_fix_30_node(self, state: State):
-
-		print("_price_fix_30_node")
+	async def _price_fix_30_node(self, state: State) -> Command[Literal['END']]:
 
 		response = interrupt({})
 		state.update({'message': response.get('message', state['message'])})
@@ -487,8 +473,6 @@ class Engine:
 
 	async def _end_node(self, state: State):
 
-		print("_end_node")
-
 		message = HumanMessage(
 			content = self.prompt_send_confirmation.format(
 				text = state.get('message'),
@@ -501,7 +485,7 @@ class Engine:
 
 		return {'message': confirmation}
 
-	async def query(self, state, tg_id):
+	async def query(self, state, user_id):
 
 		state_data = await state.get_data()
 
@@ -514,7 +498,7 @@ class Engine:
 
 		config = {
 			"configurable": {
-				"thread_id": tg_id
+				"thread_id": user_id
 			}
 		}
 
