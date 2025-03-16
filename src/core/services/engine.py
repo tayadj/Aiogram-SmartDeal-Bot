@@ -19,9 +19,11 @@ class Engine:
 		min_views: str
 		max_views: str
 
+
+	#rewrite as a lambda so its gonna work right with recalculation cap with low cpm
 	@staticmethod
 	def _calc_cap(state: State) -> str:
-		return str(int(int(state.get('client_cpm')) / 4000 * (int(state.get('min_views')) + 3*int(state.get('max_views')))))
+		return str(int(int(state.get('client_cpm')) / 4000 * (int(state.get('min_views')) + 3 * int(state.get('max_views')))))
 
 	def __init__(self, api_key: str):
 
@@ -237,7 +239,6 @@ class Engine:
 			)
 		)
 
-
 	def setup_conditions(self):
 
 		def condition_start_price(state):
@@ -252,7 +253,8 @@ class Engine:
 			
 
 
-	async def _start_node(self, state: State) -> Command[Literal['END', 'PRICE_CPM']]:
+	async def _start_node(self, state: State) -> Command[Literal['END', 'PRICE_CPM']]: #NO_PRICE, END, PRICE_CPM
+
 		message = HumanMessage(
 			content = self.prompt_find_price.format(
 				text = state.get('message')
@@ -294,6 +296,7 @@ class Engine:
 		match (await self.llm.ainvoke(message.content)).content.strip():
 
 			case 'AGREEMENT':
+
 				self.cpm = True
 				return Command(update = state, goto = 'END')
 
@@ -359,6 +362,7 @@ class Engine:
 		match (await self.llm.ainvoke(message.content)).content.strip():
 
 			case 'AGREEMENT':
+
 				self.cpm = True
 				return Command(update = state, goto = 'END')
 
@@ -381,6 +385,7 @@ class Engine:
 		match (await self.llm.ainvoke(message.content)).content.strip():
 
 			case 'AGREEMENT':
+
 				self.cpm = True
 				return Command(update = state, goto = 'END')
 
@@ -428,7 +433,7 @@ class Engine:
 
 				return Command(update = state, goto = 'PRICE_FIX_20')
 
-	async def _price_fix_20_node(self, state: State):
+	async def _price_fix_20_node(self, state: State) -> Command[Literal['END', 'PRICE_FIX_30']]:
 
 		response = interrupt({})
 		state.update({'message': response.get('message', state['message'])})
@@ -483,6 +488,7 @@ class Engine:
 				return Command(update = state, goto = 'END')
 
 	async def _end_node(self, state: State):
+
 		print(state)
 
 		message = HumanMessage(

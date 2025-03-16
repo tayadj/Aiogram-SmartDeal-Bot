@@ -27,4 +27,5 @@ async def handle_command_scenario(message: aiogram.types.Message, state: aiogram
 		return {'handler': 'handle_command_scenario'}
 
 	except Exception as exception:
+
 		await message.answer('Oops! Something is wrong.')

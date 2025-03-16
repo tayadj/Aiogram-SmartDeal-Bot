@@ -13,5 +13,6 @@ async def handle_message_text(message: aiogram.types.Message, state: aiogram.fsm
 		return {'handler': 'handle_message_text'}
 
 	except Exception as exception:
+
 		print(exception)
 		await message.answer('Oops! Something is wrong.')

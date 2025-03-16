@@ -7,6 +7,7 @@ import asyncio
 
 
 class Bot():
+
 	class UserState(aiogram.fsm.state.StatesGroup):
 
 		message = aiogram.fsm.state.State()
@@ -23,28 +24,38 @@ class Bot():
 		self.dispatcher = aiogram.Dispatcher()
 
 		self.handlers_setup()
+		self.commands_setup()
+
+	def commands_setup(self):
+
+		pass
 
 	def handlers_setup(self):
 
 		@self.dispatcher.message(aiogram.filters.Command('start'))
 		async def handle_command_start(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext):
+
 			reflexion = await core.handlers.handle_command_start(message, state, self.engine)
 
 			await state.set_state(self.UserState.client_cpm)
 
 		@self.dispatcher.message(self.UserState.client_cpm)
 		async def handle_client_cpm(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext):
+
 			reflexion = await core.handlers.handle_input_data.handle_client_cpm(message, state, self.engine)
 
 			await state.set_state(self.UserState.views)
 
 		@self.dispatcher.message(self.UserState.views)
 		async def handle_views(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext):
+
 			reflexion = await core.handlers.handle_views(message, state, self.engine)
+
 			await state.set_state(None)
 
 		@self.dispatcher.message(aiogram.filters.Command('scenario'))
 		async def handle_command_scenario(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext):
+
 			state_data = await state.get_data()
 
 			await state.update_data(
