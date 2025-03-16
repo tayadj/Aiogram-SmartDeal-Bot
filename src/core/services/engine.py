@@ -31,6 +31,7 @@ class Engine:
 		self.setup_conditions()
 		self.setup_prompts()
 		self.setup_workflow()
+		self.setup_auxiliary()
 
 	def setup_workflow(self):
 
@@ -57,9 +58,9 @@ class Engine:
 				"Analyze the following message and extract the minimum and maximum number of views (min_views and max_views) desired by the client. "
 				"If a range is mentioned, use the lower bound as min_views and the upper bound as max_views. "
 				"If only one number is mentioned, set min_views = max_views = that number. "
-				"Ensure the response includes min_views and max_views as integers.\n\n"
+				"Ensure the response includes min_views and max_views as integers separated by space.\n\n"
 				"Message: {text}\n\n"
-				"Response (format: <int>,<int>):"
+				"Response (format: <int> <int>):"
 			)
 		)
 
@@ -269,8 +270,34 @@ class Engine:
 			return influencer_price <= (client_cpm * min_views) / 1000
 
 		self.condition_start_price = condition_start_price
-			
 
+	def setup_auxiliary(self):
+
+		async def find_data_views(text):
+
+			message = HumanMessage(
+				content = self.prompt_find_views.format(
+					text = text
+				)
+			)
+			response = (await self.llm.ainvoke(message.content)).content.strip()
+			response = response.split()
+
+			return response
+
+		async def find_data_cpm(text):
+
+			message = HumanMessage(
+				content = self.prompt_find_cpm.format(
+					text = text
+				)
+			)
+			response = (await self.llm.ainvoke(message.content)).content.strip()
+			
+			return response
+
+		self.find_data_views = find_data_views
+		self.find_data_cpm = find_data_cpm
 
 	async def _start_node(self, state: State) -> Command[Literal['END', 'PRICE_CPM']]: #NO_PRICE, END, PRICE_CPM
 
@@ -522,6 +549,8 @@ class Engine:
 
 		return {'message': confirmation}
 
+
+
 	async def query(self, state, user_id):
 
 		state_data = await state.get_data()
@@ -546,3 +575,5 @@ class Engine:
 			return await self.app.ainvoke(initial_state, config = config)
 
 		return await self.app.ainvoke(Command(resume = initial_state), config = config)
+
+

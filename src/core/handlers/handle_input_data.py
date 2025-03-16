@@ -6,7 +6,8 @@ async def handle_input_cpm(message: aiogram.types.Message, state: aiogram.fsm.co
 
     try:
 
-        await state.update_data(client_cpm = message.text)
+        client_cpm = await engine.find_data_cpm(message.text)
+        await state.update_data(client_cpm = str(client_cpm))
 
         await message.answer("Nice, can you send preferred min-max views?")
 
@@ -21,8 +22,8 @@ async def handle_input_views(message: aiogram.types.Message, state: aiogram.fsm.
 
     try:
 
-        min_views, max_views = message.text.split("-")
-        await state.update_data(min_views = min_views, max_views = max_views)
+        min_views, max_views = await engine.find_data_views(message.text)
+        await state.update_data(min_views = str(min_views), max_views = str(max_views))
 
         await message.answer(f"Perfect, your input data {await state.get_data()}, type /scenario for start a dialogue")
 

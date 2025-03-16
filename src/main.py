@@ -31,7 +31,7 @@ class Bot():
 		async def run():
 
 			commands = [
-				aiogram.types.BotCommand(command = '/start', description = 'Input user\'s metrics')
+				aiogram.types.BotCommand(command = '/start', description = 'Input user\'s metrics'),
 				aiogram.types.BotCommand(command = '/scenario', description = 'Influencer dialogue start')
 			]
 			await self.bot.set_my_commands(commands = commands)
