@@ -16,13 +16,19 @@ class Engine:
 		message: str
 		client_cpm: str
 		influencer_price: str
-		views: str
+		min_views: str
+		max_views: str
+
+	@staticmethod
+	def _calc_cap(state: State) -> str:
+		return str(int(int(state.get('client_cpm')) / 4000 * (int(state.get('min_views')) + 3*int(state.get('max_views')))))
 
 	def __init__(self, api_key: str):
 
 		self.llm = ChatOpenAI(model="gpt-4", api_key=api_key)
 		self.interruption = False
 		self.success = True
+		self.cpm = False
 
 		self.setup_conditions()
 		self.setup_prompts()
@@ -218,14 +224,15 @@ class Engine:
 		)
 
 		self.prompt_send_confirmation = PromptTemplate(
-			input_variables=["text", "status", "price"],
+			input_variables=["text", "status", "price", "cpm"],
 			template=(
 				"Compose a professional and concise summary message as a manager's response to the following user interaction. "
 				"Ensure the response clearly communicates the outcome of the discussion, including the decision and price in a structured and professional tone.\n\n"
 				"Details:\n"
 				"- Previous user's message: {text}\n"
 				"- User agreement status: {status}\n"
-				"- Final Agreed Price: {price}\n\n"
+				"- Final Agreed Price: {price}\n"
+				"- Used system CPM: {cpm}\n\n"
 				"Response:"
 			)
 		)
@@ -236,17 +243,16 @@ class Engine:
 		def condition_start_price(state):
 
 			client_cpm = int(state.get("client_cpm", 0))
-			views = int(state.get("views", 0))
+			min_views = int(state.get("min_views", 0))
 			influencer_price = int(state.get("influencer_price", 0))
 
-			return influencer_price <= (client_cpm * views) / 1000
+			return influencer_price <= (client_cpm * min_views) / 1000
 
 		self.condition_start_price = condition_start_price
 			
 
 
 	async def _start_node(self, state: State) -> Command[Literal['END', 'PRICE_CPM']]:
-
 		message = HumanMessage(
 			content = self.prompt_find_price.format(
 				text = state.get('message')
@@ -266,13 +272,12 @@ class Engine:
 				message = HumanMessage(
 					content = self.prompt_offer_cpm.format(
 						client_price = int(state.get('client_cpm')),
-						cap = int(state.get('client_cpm')) * int(state.get('views')) * 1.5 / 1000, # true formula should be (CPM*(((min views + max views) / 2) + max views)/2 ) / 1000
+						cap = self._calc_cap(state),
 						text = state.get('message')
 					)
 				)
 				text = (await self.llm.ainvoke(message.content)).content.strip()
-				state.update({'message': text})
-
+				state.update({'message': text, 'influencer_price': self._calc_cap(state)})
 				return Command(update = state, goto = 'PRICE_CPM')
 
 	async def _price_cpm_node(self, state: State) -> Command[Literal['END', 'PRICE_CPM_CAP', 'PRICE_CPM_15', 'PRICE_FIX']]:
@@ -289,14 +294,14 @@ class Engine:
 		match (await self.llm.ainvoke(message.content)).content.strip():
 
 			case 'AGREEMENT':
-
+				self.cpm = True
 				return Command(update = state, goto = 'END')
 
 			case 'NO_CPM':
 
 				message = HumanMessage(
 					content = self.prompt_offer_fix_price.format(
-						fix_price =  int(state.get('client_cpm')) * int(state.get('views')) * 1.5 / 1000, # true formule should be ((CPM *(((min views + max views) / 2) + max views)/2 ) / 1000)
+						fix_price = self._calc_cap(state),
 						text = state.get('message')
 					)
 				)
@@ -310,7 +315,7 @@ class Engine:
 				message = HumanMessage(
 					content = self.prompt_offer_cpm_cap.format(
 						client_price = int(state.get('client_cpm')),
-						new_cap = int(state.get('client_cpm')) * int(state.get('views')) * 1.5 / 1000 * 1.3, # true formula should be (CPM*(((min views + max views) / 2) + max views)/2 ) / 1000
+						new_cap = 1.3 * int(self._calc_cap(state)),
 						text = state.get('message')
 					)
 				)
@@ -324,13 +329,19 @@ class Engine:
 				message = HumanMessage(
 					content = self.prompt_offer_cpm_15.format(
 						client_price = int(state.get('client_cpm')),
-						cap = int(state.get('client_cpm')) * 1.15 * int(state.get('views')) * 1.5 / 1000, # true formula should be (CPM*(((min views + max views) / 2) + max views)/2 ) / 1000
+						cap = 1.15 * int(self._calc_cap(state)),
 						text = state.get('message'),
 						new_cpm = int(state.get('client_cpm')) * 1.15
 					)
 				)
 				text = (await self.llm.ainvoke(message.content)).content.strip()
-				state.update({'message': text})
+				state.update(
+					{
+						'message': text,
+						'client_cpm': str(int(state.get('client_cpm')) * 1.15),
+						'influencer_price': str(1.15 * int(self._calc_cap(state)))
+					}
+				)
 
 				return Command(update = state, goto = 'PRICE_CPM_15')
 
@@ -348,7 +359,7 @@ class Engine:
 		match (await self.llm.ainvoke(message.content)).content.strip():
 
 			case 'AGREEMENT':
-
+				self.cpm = True
 				return Command(update = state, goto = 'END')
 
 			case 'LOW_CPM':
@@ -370,19 +381,19 @@ class Engine:
 		match (await self.llm.ainvoke(message.content)).content.strip():
 
 			case 'AGREEMENT':
-
+				self.cpm = True
 				return Command(update = state, goto = 'END')
 
 			case 'LOW_CAP':
 
 				message = HumanMessage(
 					content = self.prompt_offer_fix_price.format(
-						fix_price =  int(state.get('client_cpm')) * int(state.get('views')) * 1.5 / 1000, # true formule should be ((CPM *(((min views + max views) / 2) + max views)/2 ) / 1000)
+						fix_price = int(self._calc_cap(state)),
 						text = state.get('message')
 					)
 				)
 				text = (await self.llm.ainvoke(message.content)).content.strip()
-				state.update({'message': text})				
+				state.update({'message': text, 'influencer_price': self._calc_cap(state)})
 
 				return Command(update = state, goto = 'PRICE_FIX')
 
@@ -407,13 +418,13 @@ class Engine:
 
 				message = HumanMessage(
 					content = self.prompt_offer_fix_price_20.format(
-						original_price = int(state.get('client_cpm')) * int(state.get('views')) * 1.5 / 1000, # true formule should be ((CPM *(((min views + max views) / 2) + max views)/2 ) / 1000)
+						original_price = int(state.get('client_cpm')) / 4000 * (int(state.get('min_views')) + 3*int(state.get('max_views'))),
 						text = state.get('message'),
-						new_fix_price = int(state.get('client_cpm')) * int(state.get('views')) * 1.5 / 1000 * 1.2
+						new_fix_price = 1.2*int(self._calc_cap(state))
 					)
 				)
 				text = (await self.llm.ainvoke(message.content)).content.strip()
-				state.update({'message': text})					
+				state.update({'message': text, 'influencer_price': str(1.2*int(self._calc_cap(state)))})
 
 				return Command(update = state, goto = 'PRICE_FIX_20')
 
@@ -428,7 +439,7 @@ class Engine:
 			)
 		)
 
-		match (await self.llm.ainvoke(message.content)).content.strip() -> Command[Literal['END', 'PRICE_FIX_30']]:
+		match (await self.llm.ainvoke(message.content)).content.strip():
 
 			case 'AGREEMENT':
 
@@ -438,13 +449,13 @@ class Engine:
 
 				message = HumanMessage(
 					content = self.prompt_offer_fix_price_30.format(
-						original_price = int(state.get('client_cpm')) * int(state.get('views')) * 1.5 / 1000, # true formule should be ((CPM *(((min views + max views) / 2) + max views)/2 ) / 1000)
+						original_price = int(self._calc_cap(state)),
 						text = state.get('message'),
-						new_fix_price = int(state.get('client_cpm')) * int(state.get('views')) * 1.5 / 1000 * 1.3
+						new_fix_price = 1.3*int(self._calc_cap(state)),
 					)
 				)
 				text = (await self.llm.ainvoke(message.content)).content.strip()
-				state.update({'message': text})					
+				state.update({'message': text, 'influencer_price': str(1.3*int(self._calc_cap(state)))})
 
 				return Command(update = state, goto = 'PRICE_FIX_30')
 
@@ -472,12 +483,14 @@ class Engine:
 				return Command(update = state, goto = 'END')
 
 	async def _end_node(self, state: State):
+		print(state)
 
 		message = HumanMessage(
 			content = self.prompt_send_confirmation.format(
 				text = state.get('message'),
 				price = state.get('influencer_price'),
-				status = self.success				
+				status = self.success,
+				cpm = self.cpm
 			)
 		)
 		
@@ -493,7 +506,8 @@ class Engine:
 			'message': state_data.get('message'),
 			'client_cpm': state_data.get('client_cpm'),
 			'influencer_price': state_data.get('influencer_price'),
-			'views': state_data.get('views')
+			'max_views': state_data.get('max_views'),
+			'min_views': state_data.get('min_views')
 		}
 
 		config = {
