@@ -6,7 +6,7 @@ async def handle_command_start(message: aiogram.types.Message, state: aiogram.fs
 
     try:
 
-        await message.answer("Hello, i'm smart deal bot, please send me your preferred cpm!")
+        await message.answer("Hello, I'm smart deal bot, please send me your preferred cpm!")
         return {'handler': 'handle_command_start'}
 
     except Exception as exception:

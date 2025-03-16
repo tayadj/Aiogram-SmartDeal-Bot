@@ -2,7 +2,7 @@ import aiogram
 
 
 
-async def handle_input_client_cpm(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext, engine):
+async def handle_input_cpm(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext, engine):
 
     try:
 
@@ -10,7 +10,7 @@ async def handle_input_client_cpm(message: aiogram.types.Message, state: aiogram
 
         await message.answer("Nice, can you send preferred min-max views?")
 
-        return {'handler': 'handle_cpm'}
+        return {'handler': 'handle_input_cpm'}
 
     except Exception as exception:
 
@@ -26,7 +26,7 @@ async def handle_input_views(message: aiogram.types.Message, state: aiogram.fsm.
 
         await message.answer(f"Perfect, your input data {await state.get_data()}, type /scenario for start a dialogue")
 
-        return {'handler': 'handle_views'}
+        return {'handler': 'handle_input_views'}
 
     except Exception as exception:
 

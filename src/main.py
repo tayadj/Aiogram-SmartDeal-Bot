@@ -28,7 +28,15 @@ class Bot():
 
 	def commands_setup(self):
 
-		pass
+		async def run():
+
+			commands = [
+				aiogram.types.BotCommand(command = '/start', description = 'Input user\'s metrics')
+				aiogram.types.BotCommand(command = '/scenario', description = 'Influencer dialogue start')
+			]
+			await self.bot.set_my_commands(commands = commands)
+
+		asyncio.create_task(run())
 
 	def handlers_setup(self):
 
@@ -40,14 +48,14 @@ class Bot():
 			await state.set_state(self.UserState.client_cpm)
 
 		@self.dispatcher.message(self.UserState.client_cpm)
-		async def handle_client_cpm(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext):
+		async def handle_input_cpm(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext):
 
-			reflexion = await core.handlers.handle_input_client_cpm(message, state, self.engine)
+			reflexion = await core.handlers.handle_input_cpm(message, state, self.engine)
 
 			await state.set_state(self.UserState.views)
 
 		@self.dispatcher.message(self.UserState.views)
-		async def handle_views(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext):
+		async def handle_input_views(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext):
 
 			reflexion = await core.handlers.handle_input_views(message, state, self.engine)
 
