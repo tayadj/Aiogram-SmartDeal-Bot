@@ -2,7 +2,7 @@ import aiogram
 
 
 
-async def handle_client_cpm(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext, engine):
+async def handle_input_client_cpm(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext, engine):
 
     try:
 
@@ -17,7 +17,7 @@ async def handle_client_cpm(message: aiogram.types.Message, state: aiogram.fsm.c
         print(exception)
         await message.answer('Oops! Something is wrong.')
 
-async def handle_views(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext, engine):
+async def handle_input_views(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext, engine):
 
     try:
 

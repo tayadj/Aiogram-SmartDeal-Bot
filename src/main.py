@@ -42,14 +42,14 @@ class Bot():
 		@self.dispatcher.message(self.UserState.client_cpm)
 		async def handle_client_cpm(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext):
 
-			reflexion = await core.handlers.handle_input_data.handle_client_cpm(message, state, self.engine)
+			reflexion = await core.handlers.handle_input_client_cpm(message, state, self.engine)
 
 			await state.set_state(self.UserState.views)
 
 		@self.dispatcher.message(self.UserState.views)
 		async def handle_views(message: aiogram.types.Message, state: aiogram.fsm.context.FSMContext):
 
-			reflexion = await core.handlers.handle_views(message, state, self.engine)
+			reflexion = await core.handlers.handle_input_views(message, state, self.engine)
 
 			await state.set_state(None)
 
