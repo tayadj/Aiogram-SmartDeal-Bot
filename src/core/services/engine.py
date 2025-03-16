@@ -312,8 +312,6 @@ class Engine:
 
 	async def _start_node(self, state: State) -> Command[Literal['END', 'NO_PRICE', 'PRICE_CPM']]:
 
-		print('_start_node')
-
 		message = HumanMessage(
 			content = self.prompt_find_price.format(
 				text = state.get('message')
@@ -357,8 +355,6 @@ class Engine:
 					return Command(update = state, goto = 'PRICE_CPM')
 
 	async def _no_price_node(self, state: State) -> Command[Literal['START']]:
-
-		print('no_price')
 
 		response = interrupt({})
 		state.update({'message': response.get('message', state['message'])})
@@ -570,9 +566,6 @@ class Engine:
 				return Command(update = state, goto = 'END')
 
 	async def _end_node(self, state: State):
-
-		print(state)
-		print('_end_node')
 
 		message = HumanMessage(
 			content = self.prompt_send_confirmation.format(
