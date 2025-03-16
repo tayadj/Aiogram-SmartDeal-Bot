@@ -39,6 +39,7 @@ class Engine:
 
 		self.workflow.set_entry_point("START")
 		self.workflow.add_node("START", self._start_node)
+		self.workflow.add_node("NO_PRICE", self._no_price_node)
 		self.workflow.add_node("PRICE_CPM", self._price_cpm_node)
 		self.workflow.add_node("PRICE_CPM_15", self._price_cpm_15_node)
 		self.workflow.add_node("PRICE_CPM_CAP", self._price_cpm_cap_node)
@@ -81,6 +82,16 @@ class Engine:
 				"Analyze the following message and extract the price for advertisements. "
 				"If the price is not explicitly mentioned in the message, return 0. "
 				"Ensure the response is strictly an integer.\n\n"
+				"Message: {text}\n\n"
+				"Response:"
+			)
+		)
+
+		self.prompt_no_price = PromptTemplate(
+			input_variables=["text"],
+			template=(
+				"Analyze the following message and compose a professional and concise summary message as a manager's response to the following user interaction. "
+				"Previous message didn't contain the price for collaboration, you should ask a user to explicitly mention the price for collaboration.\n\n"
 				"Message: {text}\n\n"
 				"Response:"
 			)
@@ -299,7 +310,9 @@ class Engine:
 		self.find_data_views = find_data_views
 		self.find_data_cpm = find_data_cpm
 
-	async def _start_node(self, state: State) -> Command[Literal['END', 'PRICE_CPM']]: #NO_PRICE, END, PRICE_CPM
+	async def _start_node(self, state: State) -> Command[Literal['END', 'NO_PRICE', 'PRICE_CPM']]:
+
+		print('_start_node')
 
 		message = HumanMessage(
 			content = self.prompt_find_price.format(
@@ -309,24 +322,48 @@ class Engine:
 		influencer_price = (await self.llm.ainvoke(message.content)).content.strip()
 		state.update({'influencer_price': influencer_price})
 
-		match self.condition_start_price(state):
+		if influencer_price == '0':
 
-			case True:
-
-				return Command(update = state, goto = 'END')
-
-			case False:
-
-				message = HumanMessage(
-					content = self.prompt_offer_cpm.format(
-						client_price = int(state.get('client_cpm')),
-						cap = self._calc_cap(state),
+			message = HumanMessage(
+					content = self.prompt_no_price.format(
 						text = state.get('message')
 					)
 				)
-				text = (await self.llm.ainvoke(message.content)).content.strip()
-				state.update({'message': text, 'influencer_price': self._calc_cap(state)})
-				return Command(update = state, goto = 'PRICE_CPM')
+			text = (await self.llm.ainvoke(message.content)).content.strip()
+			state.update({'message': text})
+			
+			return Command(update = state, goto = 'NO_PRICE')
+
+		else:
+
+			match self.condition_start_price(state):
+
+				case True:
+
+					return Command(update = state, goto = 'END')
+
+				case False:
+
+					message = HumanMessage(
+						content = self.prompt_offer_cpm.format(
+							client_price = int(state.get('client_cpm')),
+							cap = self._calc_cap(state),
+							text = state.get('message')
+						)
+					)
+					text = (await self.llm.ainvoke(message.content)).content.strip()
+					state.update({'message': text, 'influencer_price': self._calc_cap(state)})
+
+					return Command(update = state, goto = 'PRICE_CPM')
+
+	async def _no_price_node(self, state: State) -> Command[Literal['START']]:
+
+		print('no_price')
+
+		response = interrupt({})
+		state.update({'message': response.get('message', state['message'])})
+
+		return Command(update = state, goto = 'START')
 
 	async def _price_cpm_node(self, state: State) -> Command[Literal['END', 'PRICE_CPM_CAP', 'PRICE_CPM_15', 'PRICE_FIX']]:
 
@@ -535,6 +572,7 @@ class Engine:
 	async def _end_node(self, state: State):
 
 		print(state)
+		print('_end_node')
 
 		message = HumanMessage(
 			content = self.prompt_send_confirmation.format(
