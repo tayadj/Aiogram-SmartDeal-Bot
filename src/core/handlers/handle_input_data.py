@@ -6,7 +6,7 @@ async def handle_input_cpm(message: aiogram.types.Message, state: aiogram.fsm.co
 
     try:
 
-        await state.update_data(client_cpm=message.text)
+        await state.update_data(client_cpm = message.text)
 
         await message.answer("Nice, can you send preferred min-max views?")
 

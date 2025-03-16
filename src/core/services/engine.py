@@ -19,18 +19,14 @@ class Engine:
 		min_views: str
 		max_views: str
 
-
-	#rewrite as a lambda so its gonna work right with recalculation cap with low cpm
-	@staticmethod
-	def _calc_cap(state: State) -> str:
-		return str(int(int(state.get('client_cpm')) / 4000 * (int(state.get('min_views')) + 3 * int(state.get('max_views')))))
-
 	def __init__(self, api_key: str):
 
 		self.llm = ChatOpenAI(model="gpt-4", api_key=api_key)
 		self.interruption = False
 		self.success = True
 		self.cpm = False
+
+		self._calc_cap = lambda state: str(int(int(state.get('client_cpm')) / 4000 * (int(state.get('min_views')) + 3 * int(state.get('max_views')))))
 
 		self.setup_conditions()
 		self.setup_prompts()
@@ -54,6 +50,29 @@ class Engine:
 		self.app = self.workflow.compile(checkpointer=MemorySaver())
 
 	def setup_prompts(self):
+
+		self.prompt_find_views = PromptTemplate(
+			input_variables=["text"],
+			template=(
+				"Analyze the following message and extract the minimum and maximum number of views (min_views and max_views) desired by the client. "
+				"If a range is mentioned, use the lower bound as min_views and the upper bound as max_views. "
+				"If only one number is mentioned, set min_views = max_views = that number. "
+				"Ensure the response includes min_views and max_views as integers.\n\n"
+				"Message: {text}\n\n"
+				"Response (format: <int>,<int>):"
+			)
+		)
+
+		self.prompt_find_cpm = PromptTemplate(
+			input_variables=["text"],
+			template=(
+				"Analyze the following message and extract the cost per mile rate (CPM) for advertisements. "
+				"If the CPM is not explicitly mentioned in the message, return 0. "
+				"Ensure the response is strictly an integer.\n\n"
+				"Message: {text}\n\n"
+				"Response:"
+			)
+		)
 
 		self.prompt_find_price = PromptTemplate(
 			input_variables=["text"],
@@ -369,7 +388,6 @@ class Engine:
 			case 'LOW_CPM':
 
 				return Command(update = state, goto = 'PRICE_FIX')
-
 
 	async def _price_cpm_cap_node(self, state: State) -> Command[Literal['END', 'PRICE_FIX']]:
 
