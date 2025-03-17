@@ -15,7 +15,7 @@ class Engine:
 	def __init__(self, api_key: str):
 
 		self.llm = ChatOpenAI(model="gpt-4", api_key=api_key)
-		self.interruption = False
+		self.interruptions = {}
 		self.success = True
 		self.cpm = False
 
@@ -38,7 +38,8 @@ class Engine:
 		self.workflow.add_node("END", EndNode(self))
 		self.workflow.set_finish_point("END")
 
-		self.app = self.workflow.compile(checkpointer=MemorySaver())
+		self.memory = MemorySaver()
+		self.app = self.workflow.compile(checkpointer = self.memory)
 
 	def setup_prompts(self):
 
@@ -93,7 +94,19 @@ class Engine:
 		self.find_data_views = find_data_views
 		self.find_data_cpm = find_data_cpm
 
+	async def reset(self, user_id):
+
+		try:
+
+			self.interruptions[user_id] = False
+			self.memory.delete(user_id)	
+
+		except:
+
+			pass
+
 	async def query(self, state: State, user_id):
+
 		initial_state = {
 			'message': state.get('message'),
 			'client_cpm': state.get('client_cpm'),
@@ -108,8 +121,9 @@ class Engine:
 			}
 		}
 
-		if not self.interruption:
-			self.interruption = True
+		if not self.interruptions[user_id]:
+
+			self.interruptions[user_id] = True
 			return await self.app.ainvoke(initial_state, config = config)
 
 		return await self.app.ainvoke(Command(resume = initial_state), config = config)
