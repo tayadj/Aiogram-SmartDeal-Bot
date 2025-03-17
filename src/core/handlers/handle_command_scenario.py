@@ -6,6 +6,8 @@ async def handle_command_scenario(message: aiogram.types.Message, state: aiogram
 
 	try:
 
+		await engine.reset(message.from_user.id)
+
 		await message.answer("""
 		I'm Dasha from Dream X-Company, where we connect outstanding creators like you with top-tier brands for impactful collaborations. Hope this message finds you well!
 
